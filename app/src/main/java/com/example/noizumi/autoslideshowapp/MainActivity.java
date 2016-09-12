@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
@@ -30,6 +31,31 @@ public class MainActivity extends AppCompatActivity {
     Handler handler = new Handler();
     ContentResolver resolver;
     Cursor cursor = null;
+
+    // エラーメッセージ表示用警告ダイアログ
+    private void showAlertDialog(String mes) {
+        // AlertDialog.Builderクラスを使ってAlertDialogの準備をする
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+        alertDialogBuilder.setTitle("エラー");
+        alertDialogBuilder.setMessage(mes);
+
+        // 肯定ボタンに表示される文字列、押したときのリスナーを設定する
+        alertDialogBuilder.setPositiveButton("OK",null);
+
+        // AlertDialogを作成して表示する
+        AlertDialog alertDialog = alertDialogBuilder.create();
+        alertDialog.show();
+    }
+
+    private void handlerReset() {
+        playButton.setText("再生");
+        handler.removeCallbacksAndMessages(null);
+        ButtonMode = true;
+        nextButton.setEnabled(ButtonMode);
+        prevButton.setEnabled(ButtonMode);
+        ImageView imageVIew = (ImageView) findViewById(R.id.imageView);
+        imageVIew.setImageDrawable(null);
+    }
 
 
     @Override
@@ -84,8 +110,8 @@ public class MainActivity extends AppCompatActivity {
                     handler.postDelayed(new Runnable(){
                         @Override
                         public void run() {
-                            getContentsInfo(IMAGE_NEXT);
                             handler.postDelayed(this, TIMER_DELAY);
+                            getContentsInfo(IMAGE_NEXT);
                         }
                     },TIMER_DELAY);
                     playButton.setText("停止");
@@ -113,6 +139,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private int getImageInfo(){
+        // 画像の情報を取得する
+        resolver = getContentResolver();
+        cursor = resolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
+                null, // 項目(null = 全項目)
+                null, // フィルタ条件(null = フィルタなし)
+                null, // フィルタ用パラメータ
+                null // ソート (null ソートなし)
+        );
+        return cursor.getCount();
+    }
+
     private void viewImage(){
         int fieldIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID);
         Long id = cursor.getLong(fieldIndex);
@@ -120,25 +159,22 @@ public class MainActivity extends AppCompatActivity {
 
         ImageView imageVIew = (ImageView) findViewById(R.id.imageView);
         imageVIew.setImageURI(imageUri);
-
-        return;
     }
-    private void getContentsInfo(int mode) {
+
+    private boolean getContentsInfo(int mode) {
+
+        if(getImageInfo()==0){
+            handlerReset();
+            showAlertDialog("画像がありません。");
+            return false;
+        }
 
         if(mode == IMAGE_INIT) {
-            // 画像の情報を取得する
-           resolver = getContentResolver();
-           cursor = resolver.query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
-                    null, // 項目(null = 全項目)
-                    null, // フィルタ条件(null = フィルタなし)
-                    null, // フィルタ用パラメータ
-                    null // ソート (null ソートなし)
-            );
             if(cursor.moveToFirst()){
                 viewImage();
             }
         }
+
         if(mode == IMAGE_NEXT) {
             if(cursor.isLast()) {
                 if(cursor.moveToFirst()){
@@ -163,5 +199,6 @@ public class MainActivity extends AppCompatActivity {
 
             }
         }
+        return true;
     }
 }
