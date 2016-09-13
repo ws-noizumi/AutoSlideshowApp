@@ -31,12 +31,14 @@ public class MainActivity extends AppCompatActivity {
     Handler handler = new Handler();
     ContentResolver resolver;
     Cursor cursor = null;
+    int lastCount = 0;
+
 
     // エラーメッセージ表示用警告ダイアログ
     private void showAlertDialog(String mes) {
         // AlertDialog.Builderクラスを使ってAlertDialogの準備をする
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-        alertDialogBuilder.setTitle("エラー");
+        alertDialogBuilder.setTitle("注意");
         alertDialogBuilder.setMessage(mes);
 
         // 肯定ボタンに表示される文字列、押したときのリスナーを設定する
@@ -53,8 +55,6 @@ public class MainActivity extends AppCompatActivity {
         ButtonMode = true;
         nextButton.setEnabled(ButtonMode);
         prevButton.setEnabled(ButtonMode);
-        ImageView imageVIew = (ImageView) findViewById(R.id.imageView);
-        imageVIew.setImageDrawable(null);
     }
 
 
@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
         nextButton = (Button) findViewById(R.id.nextButton);
         prevButton = (Button) findViewById(R.id.prevButton);
         playButton = (Button) findViewById(R.id.playButton);
+        lastCount = getImageInfo();
 
         // Android 6.0以降の場合
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -82,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // 「進む」ボタンの押下
-        final View.OnClickListener nextButtonClickListener = new View.OnClickListener() {
+        View.OnClickListener nextButtonClickListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 getContentsInfo(IMAGE_NEXT);
@@ -140,15 +141,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int getImageInfo(){
+        Cursor checkGallery;
         // 画像の情報を取得する
         resolver = getContentResolver();
-        cursor = resolver.query(
+        checkGallery = resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
                 null, // 項目(null = 全項目)
                 null, // フィルタ条件(null = フィルタなし)
                 null, // フィルタ用パラメータ
                 null // ソート (null ソートなし)
         );
+        if(cursor == null){
+            cursor = checkGallery;
+        }else if(checkGallery.getCount() != lastCount)  {
+            cursor.close();
+            cursor = checkGallery;
+        }
         return cursor.getCount();
     }
 
@@ -162,10 +170,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean getContentsInfo(int mode) {
+        int count;
 
-        if(getImageInfo()==0){
+        count = getImageInfo();
+
+        if(count != lastCount){
             handlerReset();
-            showAlertDialog("画像がありません。");
+            if(count == 0) {
+                showAlertDialog("画像がありません。");
+                ImageView imageVIew = (ImageView) findViewById(R.id.imageView);
+                imageVIew.setImageDrawable(null);
+            }else{
+                showAlertDialog("ギャラリーの内容が変更されました。\n処理を初期化します。");
+                if(cursor.moveToFirst()){
+                    viewImage();
+                }
+            }
+            lastCount = count;
             return false;
         }
 
